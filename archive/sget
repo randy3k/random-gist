@@ -1,0 +1,11 @@
+#! /bin/bash
+
+
+DIR=$(dirname $0)
+
+REMOTEADDR="$1"
+shift 1
+
+[[ -z "$REMOTEADDR" ]] && echo "missing remote address" && exit 1
+
+rsync -av --protocol=29 --exclude ".*" "$@" -e ssh "$REMOTEADDR" ./

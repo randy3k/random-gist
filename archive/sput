@@ -1,0 +1,13 @@
+#! /bin/bash
+
+
+DIR=$(dirname $0)
+
+FILES="$1"
+REMOTEADDR="$2"
+shift 2
+
+[[ -z "$REMOTEADDR" ]] && echo "missing remote address" && exit 1
+[[ -z "$FILES" ]] && echo "missing local files" && exit 1
+
+rsync -av --protocol=29 --exclude ".*" --exclude "*.so" "$@" -e ssh "$FILES" "$REMOTEADDR"

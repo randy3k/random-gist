@@ -1,0 +1,147 @@
+#! /usr/bin/env bash
+
+set -e -o pipefail
+
+if [ "$EUID" -eq 0 ]
+    then echo "Please run as regular user"
+    exit
+fi
+
+
+function vpn_status {
+	PID=$(pgrep openconnect) || true
+	if [ -n "$PID" ]; then
+		echo "vpn is connected"
+	else
+		echo "vpn is not connected"
+	fi
+}
+
+
+function vpn_kill {
+	PID=$(pgrep openconnect) || true
+	if [ -z "$PID" ]; then
+		echo "no vpn detected"
+		exit 1
+	fi
+	PUSER=$(ps -o user= -p $PID)
+	if [ "$PUSER" = "root" ]; then
+		sudo pkill "openconnect"
+	else
+		pkill "openconnect"
+	fi
+	sleep 1
+	if [ -z $(ps -o pid= -p $PID) ]; then
+		echo "vpn is killed"
+		exit 0
+	else
+		echo "fail to kill vpn"
+		exit 1
+	fi
+}
+
+
+function vpn_connect {
+	UCDPASSWORD=$(pass ucdpw)
+
+	[[ -z "$UCDPASSWORD" ]] && echo "cannot find ucd password" && exit 1
+
+
+	if [[ "$PROXY" = "true" ]]; then
+		CALL=(openconnect)
+		SCRIPT=(--script-tun --script '"ocproxy -D 8080"')
+	else
+		sudo true
+		CALL=(sudo openconnect)
+		SCRIPT=(--script '"vpn-slice 169.237.0.0/16"')
+	fi
+
+	if [[ "$BACKGROUND" = "true" ]]; then
+		CALL+=(-b)
+	fi
+
+	CALL+=(--juniper -u rcslai --passwd-on-stdin)
+	CALL+=(${SCRIPT[@]})
+
+
+	if [[ "$USE_LIBRARY_VPN" = "true" ]]; then
+		OTP=$(pass otp ucdduo)
+		[[ -z "$OTP" ]] && echo "cannot find otp" && exit 1
+		STDINTEXT="$UCDPASSWORD\n$OTP"
+		ADDR="vpn.library.ucdavis.edu"
+	else
+		OTP=$(pass otp ucdduo)
+		[[ -z "$OTP" ]] && echo "cannot find otp" && exit 1
+		if [[ "$PROXY" = "true" ]]; then
+			STDINTEXT="$UCDPASSWORD\n$OTP\nUCD-FULL-TUNNEL"
+		else
+			STDINTEXT="$UCDPASSWORD\n$OTP\nUCD-SPLIT-TUNNEL"
+		fi
+		ADDR="vpn.ucdavis.edu"
+	fi
+
+	CALL+=($ADDR)
+
+	if [[ "$BACKGROUND" = "true" ]]; then
+		echo "logging to /usr/local/var/log/ucdvpn.log"
+		eval ${CALL[@]} < <(echo -e "$STDINTEXT") 1>/usr/local/var/log/ucdvpn.log 2>&1
+	else
+		eval ${CALL[@]} < <(echo -e "$STDINTEXT")
+	fi
+}
+
+function connect_options {
+	while [ "$#" -ne 0 ]; do
+	    key="$1"
+	    case "$key" in
+	        --help|-h)
+	            echo "usage: ucdvpn connect [-b] [--library] [--proxy]"
+	            exit 1
+	        ;;
+	        --library)
+	            USE_LIBRARY_VPN="true"
+	            shift 1
+	        ;;
+	        --proxy)
+	            PROXY="true"
+	            shift 1
+	        ;;
+	        -b)
+	            BACKGROUND="true"
+	            shift 1
+	        ;;
+	        *)
+	            echo "Unknown option: $1"
+	            exit 1
+	        ;;
+	    esac
+	done
+}
+
+if [ "$#" -eq 0 ]; then
+	set -- "--help"
+fi
+
+case "$1" in
+    --help|-h)
+        echo "usage: ucdvpn [connect/status/kill]"
+    ;;
+    connect)
+        shift 1
+		connect_options "$@"
+		vpn_connect
+	;;
+    status)
+        shift 1
+        vpn_status
+    ;;
+    kill)
+        shift 1
+        vpn_kill
+    ;;
+    *)
+        echo "Unknown option: $1"
+        exit 1
+    ;;
+esac
+exit 0
