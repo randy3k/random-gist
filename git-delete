@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-
-git branch -D "$*" 2>/dev/null || git tag -d "$*" 2>/dev/null \
-|| git branch -rD "$*" 2>/dev/null || echo "error"

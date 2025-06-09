@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-for arg in "$@"
-do
-    git add "$arg"
-done
-
-git commit -m "Update $*"
