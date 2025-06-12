@@ -10,9 +10,10 @@ sudo nmcli device wifi
 ```
 WIFIAPSSID=mywifiap
 read -s WIFIAPPASSWORD
-sudo nmcli device wifi hotspot ifname wlan1 ssid $WIFIAPSSID password $WIFIAPPASSWORD
+sudo nmcli device wifi hotspot ifname wlan0 ssid $WIFIAPSSID password $WIFIAPPASSWORD
 sudo nmcli con modify Hotspot connection.autoconnect true
-sudo nmcli con modify Hotspot ipv4.address1 10.10.0.1/24,10.10.0.1
+sudo nmcli connection modify Hotspot ipv4.addresses 10.10.0.1/24
+sudo nmcli connection modify Hotspot ipv4.gateway 10.10.0.1
 sudo nmcli con modify Hotspot wifi-sec.pmf disable  # may be needed if passwork doesn't work
 sudo nmcli con modify Hotspot ipv4.never-default yes
 ```
